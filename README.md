@@ -1,5 +1,5 @@
 # GeneralModel
-Easy Operation Machine Learning in one line , including LR/SVM/RF/XGBOOST...
+Easy Operating Feature Selection & Machine Learning, including LR/SVM/RF/XGBOOST...
 # Process
     1. Normalization. 
         Method: Min-Max,Z_scale,Z_scale_6sigma
