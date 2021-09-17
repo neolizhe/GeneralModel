@@ -1,6 +1,7 @@
 #!/bin/python
 #coding:utf-8
 
+from FeatureProcess import FeatureProcess
 import xgboost
 import pandas as pds
 import numpy as np
@@ -9,13 +10,13 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.decomposition import PCA
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
-from sklearn.neighbors import NeighborhoodComponentsAnalysis
+#from sklearn.neighbors import NeighborhoodComponentsAnalysis
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import confusion_matrix,accuracy_score,auc,precision_score,roc_auc_score,recall_score
 import matplotlib.pyplot as plt
 import sys,time
     
-class GeneralModel:
+class GeneralModel(FeatureProcess):
     '''
         General ML Model Prototyping including LR/SVM/RF/XGBOOST...
         Processed by
@@ -47,15 +48,10 @@ class GeneralModel:
                  normal_type=None, fillna_type=None,\
                 split_size=0.2, resample=False, \
                  discrim=None, params=None):
-        self.data = data
+        FeatureProcess.__init__(self, data, sample, labels, normal_type, fillna_type, resample)
         self.model = model
-        self.sample = sample
-        self.labels = labels
-        self.normal_type = normal_type
-        self.fillna_type = fillna_type
         self.split_size = split_size
         self.params = params
-        self.resample = resample
         self.discrim = discrim
     
     def model_train(self):
@@ -73,78 +69,15 @@ class GeneralModel:
         t3 = time.time()
         print("model train consume %s s"%(t3-t2))
         self.modelpb = model
-    # data process : normal / fillna or dropna
-    def fillna_process(self):
-        if self.fillna_type == '0':
-            self.data = self.data.fillna(0)
-        elif self.fillna_type == 'mean':
-            self.data = self.data.fillna(self.data.mean())
-        elif self.fillna_type == 'drop':
-            self.data = self.data.dropna()
-        else:
-            pass
-    def hard_minmax(self, x):
-        if x>1:
-            return 1
-        elif x<-1:
-            return -1
-        else:
-            return x
-    def normal_process(self):
-        #min_max to [0,1]
-        #z_scale (x-miu)/sigma
-        #z_scale (x-miu)/sigma/3 && hard_max
-        if self.normal_type:
-            tmp_labels = self.data.pop(self.labels)
-            if self.normal_type == 'min_max':
-                self.data = (self.data - self.data.min())/(self.data.max()-self.data.min())
-            elif self.normal_type == 'z_scale':
-                self.data = (self.data - self.data.mean())/self.data.std()
-            elif self.normal_type == 'z_scale_sigma':
-                self.data = (self.data - self.data.mean())/self.data.std()/3
-                self.data = self.data.apply(lambda x: x.apply(self.hard_minmax), axis=1)
-            else:
-                pass
-            self.data[self.labels] = tmp_labels
-            del tmp_labels
-        else:
-            pass
-        
-    def pre_process(self):
-        #drop label na
-        self.data = self.data.sample(frac=self.sample)
-        self.data = self.data.dropna(subset=[self.labels]).reset_index(drop=True)
-        #bad cols check
-        for i in self.data.columns:
-            if self.data[i].count() < 2:
-                print("cols:%s miss"%i)
-                self.data.pop(i)
-            elif len(self.data[i].unique()) < 2:
-                print("cols:%s single value"%i)
-                self.data.pop(i)
-            else:
-                pass
-        #normal
-        self.normal_process()
-        #fillna 
-        self.fillna_process()
-    def down_sample(self, df):
-        pos_data = df[df[self.labels]==1].copy()
-        neg_data = df[df[self.labels]==0].copy()
-        pos_rate = len(pos_data)*1.0/len(neg_data)
-        if pos_rate < 1:
-            return pds.concat([pos_data, neg_data.sample(frac=pos_rate)],
-                             ignore_index=True)
-        else:
-            return df
+    
         
     def discrim_train(self,x_train,y_train,x_test):
         if self.discrim == 'LDA':
             lda = LinearDiscriminantAnalysis(n_components = 2)
         elif self.discrim == 'PCA':
             lda = PCA(n_components=25, random_state=0)
-        elif self.discrim == 'NCA':
-            lda = NeighborhoodComponentsAnalysis(n_components=2, random_state=0)
+        #elif self.discrim == 'NCA':
+        #    lda = NeighborhoodComponentsAnalysis(n_components=2, random_state=0)
         else:
             print("Err discrim type! return origin data")
             return x_train,y_train,x_test
@@ -161,11 +94,6 @@ class GeneralModel:
     def dataset_gen(self):
         train_data, test_data=train_test_split(self.data,test_size=self.split_size,\
                                               stratify = self.data[self.labels])
-        #down sample
-        if self.resample:
-            train_data = self.down_sample(train_data)
-        else:
-            train_data = train_data.sample(frac=1.0)
         test_data = test_data.sample(frac=1.0)
         y_train = train_data.pop(self.labels).values
         x_train = train_data.values
