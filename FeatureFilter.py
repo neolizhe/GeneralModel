@@ -1,18 +1,25 @@
+#!/bin/python
+#coding:utf-8
+
 from sklearn.feature_selection import VarianceThreshold,chi2,SelectKBest,RFE,SelectFromModel
 from sklearn.model_selection import cross_val_score
 from sklearn.svm import LinearSVC
 from xgboost import XGBClassifier 
 from scipy.stats import pearsonr
 from minepy import MINE
+from FeatureProcess import FeatureProcess
+import numpy as np
 ## feature selection
 ## 1.filter
 #      1.1 remove by lower variance
-class FeatSelect:
+class FeatSelect(FeatureProcess):
     def __init__(self,df,top_k,labels='label',params=None):
-        self.data = df.copy()
-        self.labels = labels
+        FeatureProcess.__init__(self, data = df, labels = labels,
+                                normal_type = 'min_max', fillna_type = 'drop',
+                                )
         self.k = top_k
         self.model = XGBClassifier(**params)
+        self.pre_process()
         self.score_dict = {}
         self.cols = self.data.columns.values
         for i in self.cols:
@@ -53,13 +60,15 @@ class FeatSelect:
         for i in range(len(self.cols)):
             X = self.data[self.cols[i]].values.reshape(-1,1)
             y = self.data.label.values
-            score = cross_val_score(self.model, X, y, scoring="r2", cv=3)
+            score = cross_val_score(self.model, X, y, scoring="r2", cv=2)
             score_list.append((self.cols[i],format(np.mean(score),'.3f')))
             self.score_dict[self.cols[i]] += abs(np.round(np.mean(score),3))
         score_list = sorted(score_list,key=lambda x:x[1],reverse=True)
         print(score_list[:self.k])
     #Wrapper
     def RecursiveElim(self):
+        self.data = self.data.fillna(0)
+        print(self.data.values)
         rfe = RFE(self.model, n_features_to_select=self.k)
         rfe.fit_transform(self.data.drop('label',axis=1), self.data.label)
         for i in rfe.get_support(True):
