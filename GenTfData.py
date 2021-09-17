@@ -70,7 +70,7 @@ class GenTfData(FeatureProcess):
         writer_1 = tf.python_io.TFRecordWriter(self.trainTf)
         writer_2 = tf.python_io.TFRecordWriter(self.validTf)
         valid_csv = []
-
+        iters = 0
         for train_data in reader:
             #train_data.bad_weather = train_data.bad_weather.map(lambda x:1 if x in ('RAIN','SNOW','SLEET') else 0)
             #self.data = train_data[train_data.first_product_id == 1].copy()
@@ -80,8 +80,9 @@ class GenTfData(FeatureProcess):
             train_dataset = train_dataset.reset_index(drop=True)
             valid_dataset = valid_dataset.reset_index(drop=True)
             valid_csv.append(valid_dataset)
-            self.tfrecord_output(writer_1,train_dataset,'train')
-            self.tfrecord_output(writer_2,valid_dataset,'valid')
+            self.tfrecord_output(writer_1,train_dataset,iters,'train')
+            self.tfrecord_output(writer_2,valid_dataset,iters,'valid')
+            iters += 1
             print("tfrecord generate done")
         del train_data,train_dataset,valid_dataset
         writer_1.close()
