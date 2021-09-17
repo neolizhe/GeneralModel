@@ -33,8 +33,8 @@ class DeepModel(GenTfData):
     
     def init_input_params(self):
         self.struct['prefetch_num'] = int(20480/self.params['batch_size'])
-        self.struct['f_num'] = self.struct['e_num'] + self.struct['n_num']
-        self.struct['buffer_size'] = self.params['batch_size']*self.struct['prefetch_num']*4*(self.struct['e_num'] + self.struct['n_num'])
+        self.struct['f_num'] = self.struct['e_num'] + self.struct['c_num'] + self.struct['n_num']
+        self.struct['buffer_size'] = self.params['batch_size']*self.struct['prefetch_num']*4*self.struct['f_num']
         self.struct['shuffle_num'] = self.params['batch_size']*self.struct['prefetch_num']
 
     def input_fn(self, path, train=True):
@@ -54,7 +54,7 @@ class DeepModel(GenTfData):
             return dataset.batch(self.params['batch_size']).map(f_parse).prefetch(self.struct['prefetch_num'])
 
     def serving_input_receiver_fn(self):
-        inputs = {'features': tf.placeholder(shape=[None, self.struct['e_num'] + self.struct['n_num']], dtype=tf.float32)}
+        inputs = {'features': tf.placeholder(shape=[None, self.struct['f_num']], dtype=tf.float32)}
         return tf.estimator.export.ServingInputReceiver(inputs, inputs)
 
 
