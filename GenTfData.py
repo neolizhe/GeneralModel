@@ -72,8 +72,6 @@ class GenTfData(FeatureProcess):
         valid_csv = []
         iters = 0
         for train_data in reader:
-            #train_data.bad_weather = train_data.bad_weather.map(lambda x:1 if x in ('RAIN','SNOW','SLEET') else 0)
-            #self.data = train_data[train_data.first_product_id == 1].copy()
             self.cross_floatfeatures(gentf_params['cross_features'])
             self.protect_enumfeatures(gentf_params['enum_features'])
             train_dataset, valid_dataset = train_test_split(self.data,test_size=self.split_size, stratify = self.data.label.values)
