@@ -2,10 +2,10 @@
 Easy Operating Feature Selection & Machine Learning & Deep Learning Model, including LR/SVM/RF/XGBOOST... DNN/DCN
 # Structure
 ## BASE: FeatureProcess 
---- Process Input data including Normalization & Fillna & Discriminant
-    1. Normalization. 
-        Method: Min-Max,Z_scale,Z_scale_6sigma
-    2. FillNan. 
+--- Process Input data including Normalization & Fillna & Discriminant\
+    1. Normalization. \
+        Method: Min-Max,Z_scale,Z_scale_6sigma\
+    2. FillNan. \
         Method: Zero,Mean,Drop
     3. Discriminant. 
         Method: LDA/PCA/NCA method alternatively.
