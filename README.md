@@ -6,21 +6,21 @@ Easy Operating Feature Selection & Machine Learning & Deep Learning Model, inclu
     1. Normalization. \
         Method: Min-Max,Z_scale,Z_scale_6sigma\
     2. FillNan. \
-        Method: Zero,Mean,Drop
-    3. Discriminant. 
-        Method: LDA/PCA/NCA method alternatively.
+        Method: Zero,Mean,Drop\
+    3. Discriminant. \
+        Method: LDA/PCA/NCA method alternatively.\
 ## FeatureFilter (Derived from FeatureProcess)
---- Select TOP K Best Features including varies methods.
-    1.Filter by Variance.
-        Drop columns with variance lower than threshold.
-    2.chiCheck
-        TOP K features sorted by chi(features, label)
-    3.Pearson Check
-        TOP K features sorted by pearsonr(features, label)
-    4.MIC Score
-        Method derived from  sklearn MINE()
-    5.Model Based
-        Use ML Model like LR/Xgboost to sort features by their importance.
+--- Select TOP K Best Features including varies methods.\
+    1.Filter by Variance.\
+        Drop columns with variance lower than threshold.\
+    2.chiCheck\
+        TOP K features sorted by chi(features, label)\
+    3.Pearson Check\
+        TOP K features sorted by pearsonr(features, label)\
+    4.MIC Score\
+        Method derived from  sklearn MINE()\
+    5.Model Based\
+        Use ML Model like LR/Xgboost to sort features by their importance.\
 ## GeneralModel (Derived from FeatureProcess)
 --- Machine Learning Model including LR/SVM/RF/XGBOOST
 ### Params
@@ -34,12 +34,12 @@ Easy Operating Feature Selection & Machine Learning & Deep Learning Model, inclu
     discrim: 'PCA','LDA','NCA' or None. Discriminant Method.
     params: dict for ML Model Params.
 ## GenTfData (Derived from FeatureProcess)
---- Transfer dataset.csv to three .tfrecord files for tensorflow deep model: trainset.tfrecord/ validset.tfrecord/ validset.csv.
-    Input: $file_name.csv
-    Ouput: Three files including $file_name_train.tfrecord, $file_name_valid.tfrecord, $file_name_valid.csv
+--- Transfer dataset.csv to three .tfrecord files for tensorflow deep model: trainset.tfrecord/ validset.tfrecord/ validset.csv.\
+    Input: $file_name.csv\
+    Ouput: Three files including $file_name_train.tfrecord, $file_name_valid.tfrecord, $file_name_valid.csv\
     split_size: size for test dataset, train dataset size is 1 - split_size.
-    work_path: origin data load path,
-    hdfs_path: targeted tfrecord save path in hdfs
+    work_path: origin data load path\
+    hdfs_path: targeted tfrecord save path in hdfs\
 ## DeepModel (Derived from GenTfData)
 --- Classic Deep Learning Method including DNN/ DCN.
 ### Params
