@@ -143,7 +143,7 @@ class DeepModel(GenTfData):
         with tf.variable_scope(name):
             x0 = x
             for i in range(self.struct['cross_layers']):
-                x = self.cross_layer(x, x0, 'cross_layer_%d' % i)
+                x = self.normal_cross_layer(x, x0, 'cross_layer_%d' % i)
         return x
 
     def deep_net(self, x, mode, name='deep_net'):
