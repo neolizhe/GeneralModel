@@ -20,7 +20,7 @@ class GenTfData(FeatureProcess):
         work_path: origin data load path,
         hdfs_path: targeted tfrecord save path in hdfs
         '''
-        FeatureProcess.__init__(self, data = 0, normal_type='z_scal_sigma', fillna_type='0')
+        FeatureProcess.__init__(self, data = 0, normal_type='z_scale_sigma', fillna_type='0')
         self.split_size = split_size
         self.file_name = file_name
         self.trainTf = self.file_name.split(".")[0]+"_train.tfrecord"
