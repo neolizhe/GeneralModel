@@ -98,16 +98,12 @@ Easy Operating Feature Selection & Machine Learning & Deep Learning Model, inclu
 
         Step 2: Machine Learning with filtered features, Xgboost/LR/RF/SVC...
         model_name = 'XGB_run'
-        gmodel = GeneralModel(model=model_name,data=df,
+        gmodel = GeneralModel(model=model_name,data=df[cols],
                            sample=1, normal_type='z_scale_sigma',discrim=None,
                            fillna_type='drop',split_size=0.1,resample=True,
                            params=ml_params[model_name])
         model = gmodel.model_train()
 
-        #Step 3: Deep Model
-        dmodel = DeepModel(file_name = 'origin_data.csv', batch_size=10240)
-        dmodel.execute()
-        
         #Step 3: Deep Model
         dmodel = DeepModel(file_name = 'origin_data.csv', batch_size=10240)
         dmodel.execute()
