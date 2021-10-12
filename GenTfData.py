@@ -72,6 +72,7 @@ class GenTfData(FeatureProcess):
         valid_csv = []
         iters = 0
         for train_data in reader:
+            self.data = train_data
             self.cross_floatfeatures(gentf_params['cross_features'])
             self.protect_enumfeatures(gentf_params['enum_features'])
             train_dataset, valid_dataset = train_test_split(self.data,test_size=self.split_size, stratify = self.data.label.values)
