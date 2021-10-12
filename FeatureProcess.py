@@ -59,7 +59,7 @@ class FeatureProcess:
             pos_rate = len(pos_data)*1.0/len(neg_data)
             if pos_rate < 1:
                 self.data =  pds.concat([pos_data, neg_data.sample(frac=pos_rate)],
-                                ignore_index=True)
+                                ignore_index=False)
             else:
                 pass
         else:
@@ -68,7 +68,7 @@ class FeatureProcess:
     def pre_process(self):
         #drop label na
         self.data = self.data.sample(frac=self.sample)
-        self.data = self.data.dropna(subset=[self.labels]).reset_index(drop=True)
+        self.data = self.data.dropna(subset=[self.labels])
         #balance sample
         self.down_sample()
         #bad cols check
