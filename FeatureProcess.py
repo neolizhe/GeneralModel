@@ -73,7 +73,9 @@ class FeatureProcess:
         self.down_sample()
         #bad cols check
         for i in self.data.columns:
-            if self.data[i].count() < 2:
+            if i == self.labels:
+                continue
+            elif self.data[i].count() < 2:
                 print("cols:%s miss"%i)
                 self.data.pop(i)
             elif len(self.data[i].unique()) < 2:
