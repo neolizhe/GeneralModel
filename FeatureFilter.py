@@ -7,15 +7,15 @@ from sklearn.svm import LinearSVC
 from xgboost import XGBClassifier 
 from scipy.stats import pearsonr
 from minepy import MINE
-from FeatureProcess import FeatureProcess
+from .FeatureProcess import FeatureProcess
 import numpy as np
 ## feature selection
 ## 1.filter
 #      1.1 remove by lower variance
-class FeatSelect(FeatureProcess):
+class FeatureFilter(FeatureProcess):
     def __init__(self,df,top_k,labels='label',params=None):
         FeatureProcess.__init__(self, data = df, labels = labels,
-                                normal_type = 'min_max', fillna_type = 'drop',
+                                normal_type = 'min_max', fillna_type = '0',
                                 )
         self.k = top_k
         self.model = XGBClassifier(**params)
