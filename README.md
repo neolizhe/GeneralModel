@@ -1,5 +1,5 @@
 # GeneralModel
-Easy Operating Feature Selection & Machine Learning & Deep Learning Model, including LR/SVM/RF/XGBOOST... DNN/DCN
+Easy Operating Feature Selection & Machine Learning & Deep Learning Model, including LR/SVM/RF/XGBOOST... DNN/DCN/Transfer Learning
 # Structure
 ## BASE: FeatureProcess 
 --- Process Input data including Normalization & Fillna & Discriminant\
