@@ -33,49 +33,42 @@ ml_params={
     }
 }
 
-gentf_params = {
-    'work_path':'~/data/',
-    'hdfs_path':'~/hdfs/data/',
-    'enum_feaures': ['city_id', 'week_day','call_time','is_onqueue'],
-    'cross_features': ['carpool_rate_week','carpool_rate_avg_tol','avg_wait_dur'], #not use yet
-}
-
 deep_params = {
     'user_name':'neolizhe',
     'under_vs_order':0.5,
-    'lr_warmup_msteps':0.05,
+    'lr_warmup_msteps':0.01,
     'lr_decay_msteps':0.5,
     'end_learning_rate':1e-5,
     'weight_decay_rate':1,
     'log_msteps':0.01,
     'summary_msteps':0.01,
     'checkpoints_msteps':0.001,
-    'train_msteps':0.2,
+    'train_msteps':1.0,
     'checkpoint_keep':10,
-    'checkpoint_path':'./model_dir',
+    'checkpoint_path':'./model_dir/model.ckpt-1000000',
     'model_flag':'py',
     'throttle_secs':300,
     'model_dir':'./model_dir',
     'export_path':'./model_dir/export/',
     'test_ratio':0.2,
-    'loss_weight':1,
+    'loss_weight':2,
     'structure':{
         #Input Dimension -- Enum Feature Dim, Numeric Feature Dim, label dim
-        'e_num':4,
-        'c_num':3,
-        'n_num':34,
+        'e_num':0,
+        'c_num':0,
+        'n_num':67,
         'l_num':1,
         #Embedding Dim -- embedding input vector[size1, size2,,sizen], output vector size
-        'e_size':[300, 7, 145, 2],
-        'emvec_len':9,
+        'e_size':[4],
+        'emvec_len':16,
         #Dense layer Param
         'dense_layers':3,
-        'dense_units':[128, 64, 64],
+        'dense_units':[512,256,128],
         #Cross layer Param
         'cross_layers':3,
         #Dropout
         'drop_rate':0.5,
         #Regularizer
-        'score':0.001,
+        'score':0.1,
     }
 }
