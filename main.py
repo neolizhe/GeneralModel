@@ -5,6 +5,8 @@ from ModelParams import ml_params
 from DeepModel import DeepModel
 from FeatureFilter import FeatSelect
 from GenTfData import GenTfData
+from Word2Vec import Word2Vec
+from SeqDCNmodel import ConcatModel
 import pandas as pds
 import sys
 
