@@ -1,0 +1,2 @@
+columns	cnt	min	max	mean	std	
+col1,1,1,1,1
