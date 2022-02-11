@@ -13,7 +13,7 @@ from ModelParams import deep_params
 from GenTfData import GenTfData
     
 class DeepModel(GenTfData):
-    def __init__(self, file_name, init_lr = 1e-3, batch_size = 256, process='train', rm_dir=False, use_checkpoint=False):
+    def __init__(self, file_name, init_lr = 4e-4, batch_size = 256, process='train', rm_dir=False, use_checkpoint=False, use_normal=False):
         GenTfData.__init__(self, file_name)
         self.params = deep_params
         self.params['init_learning_rate'] = init_lr
@@ -21,7 +21,11 @@ class DeepModel(GenTfData):
         self.process = process
         self.struct = self.params['structure']
         self.rm_dir = rm_dir
-        self.use_ckp = use_checkpoint 
+        self.use_ckp = use_checkpoint
+        self.use_normal = use_normal 
+    
+    def load_normal_params(self):
+        pass
     #check if file exists
     def check_file(self):
         shellcmd = "hdfs dfs -test -e " + self.hdfs_path + self.trainTf + ";echo $?"
@@ -32,7 +36,7 @@ class DeepModel(GenTfData):
             self.collect()
     
     def init_input_params(self):
-        self.struct['prefetch_num'] = int(20480/self.params['batch_size'])
+        self.struct['prefetch_num'] = int(10240/self.params['batch_size'])
         self.struct['f_num'] = self.struct['e_num'] + self.struct['c_num'] + self.struct['n_num']
         self.struct['buffer_size'] = self.params['batch_size']*self.struct['prefetch_num']*4*self.struct['f_num']
         self.struct['shuffle_num'] = self.params['batch_size']*self.struct['prefetch_num']
@@ -40,8 +44,8 @@ class DeepModel(GenTfData):
     def input_fn(self, path, train=True):
         def f_parse(record):
             data = tf.parse_example(record, {
-            'label': tf.FixedLenFeature([self.struct['l_num']], dtype=tf.float32),
-            'features': tf.FixedLenFeature([self.struct['f_num']], dtype=tf.float32)})
+            'features': tf.FixedLenFeature([self.struct['f_num']], dtype=tf.float32),
+            'label': tf.FixedLenFeature([self.struct['l_num']], dtype=tf.float32)})
             return data
         with tf.variable_scope('tf_reader'):
             filenames = hdfs.connect().ls(path)
@@ -66,7 +70,7 @@ class DeepModel(GenTfData):
             initializer = tf.truncated_normal_initializer(stddev=1.0/(e_size ** 0.5))
             kernel = tf.get_variable('kernel', (e_size, self.struct['emvec_len']), initializer=initializer)
             output = tf.nn.embedding_lookup(kernel, x)
-            # output = tf.reshape(output, (-1, self.struct['e_num'] * self.struct['emvec_len']))
+            output = tf.reshape(output, (-1, self.struct['e_num'] * self.struct['emvec_len']))
         return output
 
     def float_embedding(self, x, name='f_embedding'):
@@ -79,13 +83,14 @@ class DeepModel(GenTfData):
     def regular(self):
         return tf.contrib.layers.l2_regularizer(self.struct['score'])
 
-    def dense_layer(self, x, units=128, name='dense_layer'):
+    def dense_layer(self, x, mode, units=128, name='dense_layer'):
         assert x.shape.ndims == 2, '%s, %s' % (x.shape)
         with tf.variable_scope(name):
-            initializer = tf.contrib.layers.variance_scaling_initializer(uniform=True)
+            initializer = tf.contrib.layers.variance_scaling_initializer()
             kernel = tf.get_variable('kernel', shape=[x.shape[1], units], regularizer=self.regular(), initializer=initializer)
             bias = tf.get_variable('bias', shape=[units,], initializer=tf.zeros_initializer())
-            output = tf.nn.relu(x @ kernel + bias)
+            output = tf.layers.batch_normalization(x @ kernel + bias, training= mode == tf.estimator.ModeKeys.TRAIN)
+            output = tf.nn.relu(output)
         return output
 
     def cross_product(self, tensor1, tensor2):
@@ -98,7 +103,6 @@ class DeepModel(GenTfData):
     def approxi_cross_operator(self, x, y):
         assert x.shape[2] % 3 == 0, "Error Embedding Dims: %s" % (x.shape, y.shape)
         split_num = x.shape[2]//3
-        print(x.shape,y.shape,split_num)
         vec_array_x = tf.split(x, num_or_size_splits = split_num, axis = 2)
         vec_array_y = tf.split(y, num_or_size_splits = split_num, axis = 2)
         res_array = [self.cross_product(vec_array_x[i], vec_array_y[i]) for i in range(split_num)]
@@ -112,10 +116,9 @@ class DeepModel(GenTfData):
             for i in range(self.struct['cross_layers']):
                 x = tf.concat([x, self.approxi_cross_operator(x, x0)], 1)
             initializer = tf.glorot_uniform_initializer()
-            print(x.shape,"cross_neo")
             kernel = tf.get_variable('kernel', shape=[x.shape[2], 1], regularizer=self.regular(), initializer=initializer)
             bias = tf.get_variable('bias', shape=[x.shape[1], 1], initializer = tf.zeros_initializer())
-            output =  x @ kernel + bias
+            output =  x * kernel + bias
             output = tf.reshape(output, (-1, x.shape[1]))
         return output
 
@@ -129,52 +132,60 @@ class DeepModel(GenTfData):
             output = x0 * (x @ kernel) + bias + x
         return output
 
-    def deep_network(self, x, name='deep_network'):
+    def deep_network(self, x, mode, name='deep_network'):
         #print(x.shape)
         assert x.shape.ndims == 2, '%s, %s' % (x.shape)
         with tf.variable_scope(name):
             for i in range(self.struct['dense_layers']):
-                x = self.dense_layer(x, self.struct['dense_units'][i], 'dense_layer_%d' % i)
-                if i % 2 == 0:
-                    x = tf.layers.batch_normalization(x)
+                x = self.dense_layer(x, mode = mode, units = self.struct['dense_units'][i],name="dense_layer_%s"%i)
+                #x = tf.layers.batch_normalization(x, training= mode == tf.estimator.ModeKeys.TRAIN)
         return x
 
-    def cross_network(self, x, name='cross_network'):
+    def cross_network(self, x, mode, name='cross_network'):
         with tf.variable_scope(name):
             x0 = x
             for i in range(self.struct['cross_layers']):
                 x = self.normal_cross_layer(x, x0, 'cross_layer_%d' % i)
+                #x = tf.layers.dropout(x, 0.3, training= mode == tf.estimator.ModeKeys.TRAIN)
         return x
 
     def deep_net(self, x, mode, name='deep_net'):
         with tf.variable_scope(name):
-            e_features, n_features = tf.split(x,[self.struct['e_num'], self.struct['c_num'] + self.struct['n_num']], 1)
+            #e_features, n_features = tf.split(x,[self.struct['e_num'], self.struct['c_num'] + self.struct['n_num']], 1)
             #Embedding layers
-            embed_features = self.embedding_layer(e_features)
-            cross_output = self.cross_product_layers(embed_features)
+            #embed_features = tf.cast(e_features/2, tf.float32)
+            #embed_features = self.embedding_layer(e_features)
+            #cross_output = self.cross_product_layers(embed_features)
+            #post_efeatures = tf.reshape(embed_features, (-1, self.struct['e_num'] * self.struct['emvec_len']))
+            #x = tf.concat([embed_features, n_features],axis=1)
+            x = tf.add(x, 0, name='vec_in')
+            cross_output = self.cross_network(x, mode=mode)
             #Dense layers
-            deep_output = self.deep_network(n_features)
-            output = tf.concat([deep_output, cross_output], 1)
-            output = tf.layers.dropout(output, self.struct['drop_rate'], training= mode == tf.estimator.ModeKeys.TRAIN)
+            deep_output = self.deep_network(x, mode=mode)
+            ot = tf.concat([deep_output, cross_output], 1)
+            o1 = self.dense_layer(ot, mode, 256, 'out_layer1')
+            o2 = self.dense_layer(o1, mode, 128, 'out_layer2')
+            output = tf.layers.dropout(o2, self.struct['drop_rate'], training= mode == tf.estimator.ModeKeys.TRAIN)
+            output = tf.add(output, 0, name='vec_out')
             # Output layer
-            initializer = tf.glorot_uniform_initializer() # sigmoid activate func use Xvaier Initializer
+            initializer = tf.contrib.layers.xavier_initializer() # sigmoid activate func use Xvaier Initializer
             kernel = tf.get_variable('kernel', shape=[output.shape[1],1], initializer=initializer)
             bias = tf.get_variable('bias', shape=[1,], initializer=tf.zeros_initializer())
-            output = tf.nn.sigmoid(output @ kernel + bias)
+            output = tf.nn.sigmoid(output * kernel + bias)
         return output
 
     def model_fn(self, features, labels, mode, params):
         # network
         is_train = mode == tf.estimator.ModeKeys.TRAIN
-        features, labels = (features.get(key) for key in ['features', 'label'])  
+        totals = features.get('features')
+        features, labels = tf.split(totals, [self.struct['f_num'], self.struct['l_num']], axis=1)  
         predicts = self.deep_net(features, mode)
-
         train_op = metrics = loss = None
         if mode == tf.estimator.ModeKeys.TRAIN or mode == tf.estimator.ModeKeys.EVAL:
             with tf.variable_scope('loss'):
                 reg = tf.cast(tf.losses.get_regularization_loss(), tf.float32)
                 loss = tf.reduce_mean(tf.nn.weighted_cross_entropy_with_logits(labels, predicts, self.params['loss_weight']))
-                loss = loss + reg
+                #loss = loss + reg
 
         if mode == tf.estimator.ModeKeys.TRAIN:
             if self.use_ckp:
@@ -246,6 +257,7 @@ class DeepModel(GenTfData):
                 print("Thres %.2f"%thres,'PosRate %.2f'% np.mean(y_pred))
                 print("Acc:%.2f"%pr,"Recall:%.2f"%rc,"AUC:%.2f"%ac,"Precision:%.2f"%ps,"f1-score:%.2f"%(2*pr*rc/(pr+rc)))
                 print("="*50)
+                
     def remove_dir(self):
         if self.rm_dir:
             try:
@@ -266,6 +278,8 @@ class DeepModel(GenTfData):
         self.remove_dir()
         self.check_file()
         self.init_input_params()
+        if self.use_normal:
+            self.load_normal_params()
         run_config = tf.estimator.RunConfig(
             model_dir = self.params['model_dir'],
             save_summary_steps = int(self.params['summary_msteps'] * 1e3),
@@ -277,13 +291,14 @@ class DeepModel(GenTfData):
         estimator = tf.estimator.Estimator(model_fn=self.model_fn, config=run_config, params=self.params)
         best_exporter = tf.estimator.BestExporter(name='best_loss', 
                     serving_input_receiver_fn = self.serving_input_receiver_fn, exports_to_keep = 5)
-        early_stopping = tf.estimator.experimental.stop_if_no_decrease_hook(estimator,'loss',5000,min_steps=10000)
+        early_stopping = tf.estimator.experimental.stop_if_no_decrease_hook(estimator,'loss',50000,min_steps=1000000)
         
         if self.process == "train":
             self.printLog("Train & Valid")
             train_spec = tf.estimator.TrainSpec(
                 input_fn=lambda:self.input_fn(self.hdfs_path + self.trainTf, train=True),
-                max_steps=int(self.params['train_msteps'] * 1e6), hooks = [early_stopping] )
+                max_steps=int(self.params['train_msteps'] * 1e6))
+                #, hooks = [early_stopping] )
 
             eval_spec = tf.estimator.EvalSpec(
                 input_fn=lambda:self.input_fn(self.hdfs_path + self.validTf, train=False), 
