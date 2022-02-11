@@ -1,17 +1,19 @@
 #!/bin/python
 #coding:utf-8
-
+import pandas as pds
 class FeatureProcess:
     def __init__(self,data,\
                  sample=1.0, labels='label',\
                  normal_type=None, fillna_type=None,\
-                 resample=False):
+                 resample=False, non_normal_cols = ['label']):
         self.data = data
         self.sample = sample
         self.labels = labels
         self.normal_type = normal_type
         self.fillna_type = fillna_type  
-        self.resample = resample 
+        self.resample = resample
+        self.non_normal = non_normal_cols
+        
 
     # data process : normal / fillna or dropna
     def fillna_process(self):
@@ -37,17 +39,20 @@ class FeatureProcess:
         #z_scale (x-miu)/sigma
         #z_scale (x-miu)/sigma/3 && hard_max
         if self.normal_type:
-            tmp_labels = self.data.pop(self.labels)
+            tmp_labels = self.data[self.non_normal]
+            self.data = self.data.drop(self.non_normal, axis=1)
             if self.normal_type == 'min_max':
                 self.data = (self.data - self.data.min())/(self.data.max()-self.data.min())
             elif self.normal_type == 'z_scale':
                 self.data = (self.data - self.data.mean())/self.data.std()
             elif self.normal_type == 'z_scale_sigma':
                 self.data = (self.data - self.data.mean())/self.data.std()/3
-                self.data = self.data.apply(lambda x: x.apply(self.hard_minmax), axis=1)
+                cols = self.data.columns
+                self.data = self.data.apply([lambda x: self.hard_minmax(x)])
+                self.data.columns = cols
             else:
                 pass
-            self.data[self.labels] = tmp_labels
+            self.data = pds.concat([self.data, tmp_labels], axis=1)
             del tmp_labels
         else:
             pass
@@ -70,17 +75,17 @@ class FeatureProcess:
         self.data = self.data.sample(frac=self.sample)
         self.data = self.data.dropna(subset=[self.labels])
         #balance sample
-        self.down_sample()
+        #self.down_sample()
         #bad cols check
         for i in self.data.columns:
             if i == self.labels:
                 continue
             elif self.data[i].count() < 2:
                 print("cols:%s miss"%i)
-                self.data.pop(i)
+                #self.data.pop(i)
             elif len(self.data[i].unique()) < 2:
                 print("cols:%s single value"%i)
-                self.data.pop(i)
+                #self.data.pop(i)
             elif self.data[i].dtype == 'str' or self.data[i].dtype == 'object':
                 unique_arr = self.data[i].unique()
                 key_map = {unique_arr[i]:i for i in range(len(unique_arr))}
