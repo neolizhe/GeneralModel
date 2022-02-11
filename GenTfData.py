@@ -8,37 +8,27 @@ import argparse
 import subprocess as sp
 from sklearn.model_selection import train_test_split
 from tqdm import tqdm
-from ModelParams import gentf_params
-
+# import pyarrow.hdfs as hdfs
 class GenTfData(FeatureProcess):
-    def __init__(self, file_name, split_size=0.2):
-        '''
-        Generate tfrecord dataset for deep model,derived from FeatureProcess method.
-        Input: $file_name.csv
-        Ouput: Three files including $file_name_train.tfrecord, $file_name_valid.tfrecord, $file_name_valid.csv
-        split_size: size for test dataset, train dataset size is 1 - split_size.
-        work_path: origin data load path,
-        hdfs_path: targeted tfrecord save path in hdfs
-        '''
-        FeatureProcess.__init__(self, data = 0, normal_type='z_scale_sigma', fillna_type='0')
+    def __init__(self, file_name, label='label', split_size=0.1):
+        FeatureProcess.__init__(self, data = 0, labels=label, normal_type='z_scale_sigma', fillna_type='0')
         self.split_size = split_size
         self.file_name = file_name
         self.trainTf = self.file_name.split(".")[0]+"_train.tfrecord"
         self.validTf = self.file_name.split(".")[0]+"_valid.tfrecord"
         self.validCsv = self.file_name.split(".")[0]+"_valid.csv"
-        self.work_path = gentf_params['work_path']
-        self.hdfs_path = gentf_params['hdfs_path']
+        self.work_path = '~/neolizhe/data/'
+        #self.work_path = './'
+        self.hdfs_path = './neolizhe/carpoolrate/dnn_data/'
 
     def tfrecord_output(self, writer,df, chunk_iter, is_train='train'):
-        df_res = df.copy()
-        labels = df_res.pop('label')
+        df_res = df.drop('label',axis=1).copy()
         df_res['features']=df_res.apply(lambda x: x.values, axis=1)
-        df_res['label']=labels
         with tqdm(range(len(df_res)),"chunkiter_%s_tfrecord_%s_processing..."%(chunk_iter,is_train)) as t:
             for i in t:
                 feature=tf.train.Feature(float_list=tf.train.FloatList(value=df_res.loc[i,'features'].reshape(-1)))
-                label=tf.train.Feature(float_list=tf.train.FloatList(value=[df_res.loc[i,'label']]))
-                cols=tf.train.Features(feature={'features':feature,'label':label})
+                label=tf.train.Feature(float_list=tf.train.FloatList(value=[df.loc[i, 'label']]))
+                cols=tf.train.Features(feature={'features':feature, 'label':label})
                 example=tf.train.Example(features=cols)
                 writer.write(example.SerializeToString())
 
@@ -66,28 +56,31 @@ class GenTfData(FeatureProcess):
     def collect(self):
         file_path = self.work_path + self.file_name
         #
-        reader = pds.read_csv(file_path, iterator=True, chunksize=5*10**6)
+        reader = pds.read_csv(file_path, iterator=True, chunksize=10**7)
         writer_1 = tf.python_io.TFRecordWriter(self.trainTf)
         writer_2 = tf.python_io.TFRecordWriter(self.validTf)
-        valid_csv = []
         iters = 0
+        df_cols = pds.read_csv(file_path, nrows=10)
+        cols = df_cols.columns
+        # self.non_normal = cols[-32:]
+
         for train_data in reader:
-            self.data = train_data
-            self.cross_floatfeatures(gentf_params['cross_features'])
-            self.protect_enumfeatures(gentf_params['enum_features'])
+            self.data = train_data.fillna(0).copy()
+            # self.data.columns = cols
             train_dataset, valid_dataset = train_test_split(self.data,test_size=self.split_size, stratify = self.data.label.values)
             train_dataset = train_dataset.reset_index(drop=True)
             valid_dataset = valid_dataset.reset_index(drop=True)
-            valid_csv.append(valid_dataset)
-            self.tfrecord_output(writer_1,train_dataset,iters,'train')
-            self.tfrecord_output(writer_2,valid_dataset,iters,'valid')
+            self.tfrecord_output(writer_1,train_dataset,'train')
+            self.tfrecord_output(writer_2,valid_dataset,'valid')
+            if iters == 0:
+                valid_dataset.to_csv(self.validCsv, header=True, mode='w', index=False)
+            else:
+                valid_dataset.to_csv(self.validCsv, header=False, mode='a', index=False)
             iters += 1
             print("tfrecord generate done")
         del train_data,train_dataset,valid_dataset
         writer_1.close()
         writer_2.close()
-        pds.concat(valid_csv, ignore_index=True).to_csv(self.validCsv,index=False)
-        del valid_csv
         self.toHDFS(self.trainTf)
         self.toHDFS(self.validTf)
         self.toHDFS(self.validCsv)
