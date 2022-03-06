@@ -1,5 +1,9 @@
 # GeneralModel
 Easy Operating Feature Selection & Machine Learning & Deep Learning Model, including LR/SVM/RF/XGBOOST... DNN/DCN/Transfer Learning
+______
+add tpesearch for BayesSearch for Hyper Params Searching
+optuna package is needed
+
 # Structure
 ## BASE: FeatureProcess 
 --- Process Input data including Normalization & Fillna & Discriminant\
